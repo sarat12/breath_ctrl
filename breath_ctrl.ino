@@ -8,11 +8,13 @@
 const String MIDI_CHANNEL_HEADER = String("CC:");
 const String LOW_OFFSET_HEADER = String("LO:");
 const String HIGH_OFFSET_HEADER = String("HO:");
+const String DELAY_HEADER = String("DL:");
 
 const byte NONE_MENU = 255;
 const byte MC_MENU = 0;
 const byte LO_MENU = 1;
 const byte HO_MENU = 2;
+const byte DL_MENU = 3;
 
 const byte MIDI_MODE = 0;
 const byte MENU_MODE = 1;
@@ -31,6 +33,7 @@ struct CFG_t {
   byte midiCc;
   int lowOffset;
   int highOffset;
+  int _delay=0;
 } cfg;
 
 int lastCcValue = 0;
@@ -61,6 +64,7 @@ void loop() {
           case MC_MENU : enc.write(cfg.midiCc * 4); break;
           case LO_MENU : enc.write(cfg.lowOffset * 4); break;
           case HO_MENU : enc.write(cfg.highOffset * 4); break;
+          case DL_MENU : enc.write(cfg._delay * 4); break;
         }
         refreshSelectedMenuValue();
       } break;
@@ -75,7 +79,7 @@ void loop() {
 
   if (mode == MENU_MODE) {
     long ev = enc.read() / 4;
-    long cnt = constrain(ev, MC_MENU, HO_MENU);
+    long cnt = constrain(ev, MC_MENU, DL_MENU);
     if (ev != cnt)
       enc.write(cnt * 4);
 
@@ -126,10 +130,24 @@ void loop() {
           display.display();
         }
       } break;
+
+      case DL_MENU : {
+        long ev = enc.read() / 4;
+        long cnt = constrain(ev, 0, 999);
+        if (ev != cnt)
+          enc.write(cnt * 4);
+
+        if (cfg._delay != cnt) {
+          cfg._delay = cnt;
+          refreshSelectedMenuValue();
+          display.display();
+        }
+      } break;
     }
   }
 
   if (mode == MIDI_MODE) {
+    delay(cfg._delay);
     int constrained = constrain(analogRead(SENSOR_PIN), cfg.lowOffset, cfg.highOffset);
     int val = map(constrained, cfg.lowOffset, cfg.highOffset, 0, 127);
     if (lastCcValue != val) {
@@ -161,49 +179,59 @@ void initScreen() {
 }
 
 void refreshMenuHeaders() {
-	display.setTextSize(2);
-  display.setCursor(20, 8);
-	setColor(selectedMenu == MC_MENU);
+  display.setTextSize(2);
+  display.setCursor(20, 0);
+  setColor(selectedMenu == MC_MENU);
   display.print(MIDI_CHANNEL_HEADER);
-  display.setCursor(20, 26);
-	setColor(selectedMenu == LO_MENU);
+  display.setCursor(20, 16);
+  setColor(selectedMenu == LO_MENU);
   display.print(LOW_OFFSET_HEADER);
-  display.setCursor(20, 44);
-	setColor(selectedMenu == HO_MENU);
+  display.setCursor(20, 32);
+  setColor(selectedMenu == HO_MENU);
   display.print(HIGH_OFFSET_HEADER);
+  display.setCursor(20, 48);
+  setColor(selectedMenu == DL_MENU);
+  display.print(DELAY_HEADER);
 }
 
 void refreshMenuValues() {
   display.setTextSize(2);
-  display.setCursor(60, 8);
-	setColor(selectedMenu == MC_MENU);
+  display.setCursor(60, 0);
+  setColor(selectedMenu == MC_MENU);
   display.print(formatNumber(cfg.midiCc));
-  display.setCursor(60, 26);
-	setColor(selectedMenu == LO_MENU);
+  display.setCursor(60, 16);
+  setColor(selectedMenu == LO_MENU);
   display.print(formatNumber(cfg.lowOffset));
-  display.setCursor(60, 44);
-	setColor(selectedMenu == HO_MENU);
+  display.setCursor(60, 32);
+  setColor(selectedMenu == HO_MENU);
   display.print(formatNumber(cfg.highOffset));
+  display.setCursor(60, 48);
+  setColor(selectedMenu == DL_MENU);
+  display.print(formatNumber(cfg._delay));
 }
 
 void refreshSelectedMenuValue() {
-	display.setTextSize(2);
-	setColor(true);
-	switch (selectedMenu)
-	{
+  display.setTextSize(2);
+  setColor(true);
+  switch (selectedMenu)
+  {
     case MC_MENU: {
-      display.setCursor(60, 8);
+      display.setCursor(60, 0);
       display.print(formatNumber(cfg.midiCc));
     } break;
     case LO_MENU: {
-      display.setCursor(60, 26);
+      display.setCursor(60, 16);
       display.print(formatNumber(cfg.lowOffset));
     } break;
     case HO_MENU: {
-      display.setCursor(60, 44);
+      display.setCursor(60, 32);
       display.print(formatNumber(cfg.highOffset));
     } break;
-	}
+    case DL_MENU: {
+      display.setCursor(60, 48);
+      display.print(formatNumber(cfg._delay));
+    } break;
+  }
 }
 
 void setColor(bool invert) {
@@ -238,6 +266,3 @@ template <class T> int EEPROM_readAnything(int ee, T& value)
           *p++ = EEPROM.read(ee++);
     return i;
 }
-
-
-
